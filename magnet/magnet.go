@@ -69,6 +69,7 @@ func (f *Magnet) ResetMeter(v float32) {
 
 // EdgeDetected dies und das
 func (f *Magnet) EdgeDetected() bool {
+	now := time.Now()
 	val, _, _, err := f.sensor.GetMagnetRaw()
 	if err != nil {
 		log.Print(err)
@@ -98,6 +99,8 @@ func (f *Magnet) EdgeDetected() bool {
 			if val > (f.MaxVal - xrange/RangeTresholdFraction) {
 				f.expectLow = true
 				f.MaxVal -= xrange / RangeAdjustmentFraction
+				f.stop = now.Sub(f.start)
+				f.start = now
 				f.count++
 				f.Meter = f.baseMeter + float32(f.count)*0.001
 				save(f)
@@ -108,9 +111,17 @@ func (f *Magnet) EdgeDetected() bool {
 	return false
 }
 
+// Power returns the current power measurement in Watts
+func (f *Magnet) Power() float64 {
+	if f.stop == 0 {
+		return 0
+	}
+	return 0.9655 * 11.229 * 1000 / f.stop.Hours()
+}
+
 // Print screen output
 func (f *Magnet) Print() {
-	log.Printf("%10v %10.3f\n", f.Name, f.Meter)
+	log.Printf("%10v %v %8.1f %10.3f\n", f.Name, f.count, f.Power(), f.Meter)
 }
 
 // InfluxMeasurement …
@@ -144,6 +155,8 @@ func restore(f *Magnet) {
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	f.ResetMeter(f.Meter)
 }
 
 //

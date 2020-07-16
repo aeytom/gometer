@@ -16,6 +16,10 @@ import (
 )
 
 const (
+	influxWriteInterval = 30 * time.Second
+)
+
+const (
 	dfltInfluxURL         = "http://192.168.1.56:8086"
 	dfltInfluxUser        = "homemeter"
 	dfltInfluxPass        = "istgeheim"
@@ -102,18 +106,36 @@ func main() {
 	watchdogInterval, _ := daemon.SdWatchdogEnabled(true)
 	nextNotify := time.Now().Add(watchdogInterval / 2)
 
+	nextCurrent := time.Now().Add(influxWriteInterval)
+	nextSolar := time.Now().Add(influxWriteInterval)
+	nextGas := time.Now().Add(influxWriteInterval)
+
 	for {
 		if currentMeter.EdgeDetected() {
 			currentMeter.Print()
 			writeInflux(currentMeter)
+			nextCurrent = time.Now().Add(influxWriteInterval)
+		} else if time.Now().After(nextCurrent) {
+			writeInflux(currentMeter)
+			nextCurrent = time.Now().Add(influxWriteInterval)
 		}
+
 		if solarMeter.EdgeDetected() {
 			solarMeter.Print()
 			writeInflux(solarMeter)
+			nextSolar = time.Now().Add(influxWriteInterval)
+		} else if time.Now().After(nextSolar) {
+			writeInflux(solarMeter)
+			nextSolar = time.Now().Add(influxWriteInterval)
 		}
+
 		if gasMeter.EdgeDetected() {
 			gasMeter.Print()
 			writeInflux(gasMeter)
+			nextGas = time.Now().Add(influxWriteInterval)
+		} else if time.Now().After(nextGas) {
+			writeInflux(gasMeter)
+			nextGas = time.Now().Add(influxWriteInterval)
 		}
 
 		if watchdogInterval != 0 && time.Now().After(nextNotify) {
@@ -121,7 +143,7 @@ func main() {
 			nextNotify = time.Now().Add(watchdogInterval / 2)
 		}
 
-		time.Sleep(time.Millisecond * 100)
+		time.Sleep(time.Millisecond * 50)
 	}
 }
 
