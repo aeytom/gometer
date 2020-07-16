@@ -38,6 +38,7 @@ type Magnet struct {
 	//
 	sensor    *qmc5883l.QMC5883L
 	expectLow bool
+	dorCount  int
 }
 
 // New initializes a new Magnet struct
@@ -54,7 +55,7 @@ func New(name string) Magnet {
 
 // Close …
 func (f *Magnet) Close() {
-	f.Close()
+	f.sensor.Close()
 }
 
 // ResetMeter resets the meter to new base meter value
@@ -73,8 +74,13 @@ func (f *Magnet) EdgeDetected() bool {
 	val, _, _, err := f.sensor.GetMagnetRaw()
 	if err != nil {
 		log.Print(err)
+		f.dorCount++
+		if f.dorCount > 50 {
+			panic("Magnet sensor has to often no data ready")
+		}
 		return false
 	}
+	f.dorCount = 0
 
 	if f.MinVal > val {
 		f.MinVal = val
@@ -112,7 +118,7 @@ func (f *Magnet) EdgeDetected() bool {
 }
 
 // Power returns the current power measurement in Watts
-func (f *Magnet) Power() float64 {
+func (f Magnet) Power() float64 {
 	if f.stop == 0 {
 		return 0
 	}
@@ -120,24 +126,24 @@ func (f *Magnet) Power() float64 {
 }
 
 // Print screen output
-func (f *Magnet) Print() {
+func (f Magnet) Print() {
 	log.Printf("%10v %v %8.1f %10.3f\n", f.Name, f.count, f.Power(), f.Meter)
 }
 
 // InfluxMeasurement …
-func (f *Magnet) InfluxMeasurement() string {
+func (f Magnet) InfluxMeasurement() string {
 	return "gas"
 }
 
 // InfluxFields …
-func (f *Magnet) InfluxFields() map[string]interface{} {
+func (f Magnet) InfluxFields() map[string]interface{} {
 	return map[string]interface{}{
 		"value": f.Meter,
 	}
 }
 
 // InfluxTags …
-func (f *Magnet) InfluxTags() map[string]string {
+func (f Magnet) InfluxTags() map[string]string {
 	return map[string]string{
 		"meter": strings.ToLower(f.Name),
 	}

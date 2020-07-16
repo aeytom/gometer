@@ -2,6 +2,7 @@ package ferraris
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -26,12 +27,18 @@ type Ferraris struct {
 	stop      time.Duration
 }
 
-// New …
-func New(name string, pin int, rpkwh int) Ferraris {
+var rpioOpened bool
 
+func init() {
 	if err := rpio.Open(); err != nil {
 		log.Fatal(err)
 	}
+	rpioOpened = true
+	fmt.Println("init rpio")
+}
+
+// New …
+func New(name string, pin int, rpkwh int) Ferraris {
 
 	f := Ferraris{
 		Name:                     name,
@@ -49,7 +56,10 @@ func New(name string, pin int, rpkwh int) Ferraris {
 
 // Close rpio
 func (f *Ferraris) Close() {
-	rpio.Close()
+	if rpioOpened {
+		rpio.Close()
+		rpioOpened = false
+	}
 }
 
 // ResetMeter resets the meter to new base meter value
@@ -68,7 +78,7 @@ func (f *Ferraris) Get() rpio.State {
 }
 
 // Power returns the current power measurement in Watts
-func (f *Ferraris) Power() float64 {
+func (f Ferraris) Power() float64 {
 	if f.stop == 0 {
 		return 0
 	}
@@ -94,17 +104,17 @@ func (f *Ferraris) EdgeDetected() bool {
 }
 
 // Print screen output
-func (f *Ferraris) Print() {
+func (f Ferraris) Print() {
 	log.Printf("%10v %2v %4v %7.1f %10.3f\n", f.Name, f.BcmPin, f.count, f.Power(), f.Meter)
 }
 
 // InfluxMeasurement …
-func (f *Ferraris) InfluxMeasurement() string {
+func (f Ferraris) InfluxMeasurement() string {
 	return "meter"
 }
 
 // InfluxFields …
-func (f *Ferraris) InfluxFields() map[string]interface{} {
+func (f Ferraris) InfluxFields() map[string]interface{} {
 	return map[string]interface{}{
 		"value":   f.Meter,
 		"wattage": f.Power(),
@@ -112,7 +122,7 @@ func (f *Ferraris) InfluxFields() map[string]interface{} {
 }
 
 // InfluxTags …
-func (f *Ferraris) InfluxTags() map[string]string {
+func (f Ferraris) InfluxTags() map[string]string {
 	return map[string]string{
 		"meter": strings.ToLower(f.Name),
 	}

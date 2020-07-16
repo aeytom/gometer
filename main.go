@@ -5,17 +5,16 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"reflect"
 	"time"
 
+	"github.com/aeytom/gometer/ferraris"
 	"github.com/aeytom/gometer/magnet"
-
-	ferraris "github.com/aeytom/gometer/meter"
 	"github.com/coreos/go-systemd/daemon"
 	client "github.com/influxdata/influxdb1-client"
 )
 
 const (
+	pollInterval        = 50 * time.Millisecond
 	influxWriteInterval = 30 * time.Second
 )
 
@@ -87,20 +86,17 @@ func main() {
 	solarMeter = ferraris.New("Solar", 17, 375)
 	solarMeter.ResetMeter(float32(*argSolar))
 	solarMeter.Print()
+	defer solarMeter.Close()
 
 	currentMeter = ferraris.New("Current", 27, 75)
 	currentMeter.ResetMeter(float32(*argCurrent))
 	currentMeter.Print()
+	defer currentMeter.Close()
 
 	gasMeter = magnet.New("Gas")
 	gasMeter.ResetMeter(float32(*argGas))
 	gasMeter.Print()
-
-	defer func() {
-		solarMeter.Close()
-		currentMeter.Close()
-		gasMeter.Close()
-	}()
+	defer gasMeter.Close()
 
 	daemon.SdNotify(false, daemon.SdNotifyReady)
 	watchdogInterval, _ := daemon.SdWatchdogEnabled(true)
@@ -143,7 +139,7 @@ func main() {
 			nextNotify = time.Now().Add(watchdogInterval / 2)
 		}
 
-		time.Sleep(time.Millisecond * 50)
+		time.Sleep(pollInterval)
 	}
 }
 
@@ -158,22 +154,13 @@ func getEnvArg(env string, arg string, dflt string, usage string) *string {
 }
 
 //
-func writeInflux(data interface{}) {
+func writeInflux(data Meter) {
 	point := client.Point{
-		Time:      time.Now().UTC(),
-		Precision: "n",
-	}
-
-	if reflect.TypeOf(data) == reflect.TypeOf(ferraris.Ferraris{}) {
-		f := data.(ferraris.Ferraris)
-		point.Measurement = f.InfluxMeasurement()
-		point.Tags = f.InfluxTags()
-		point.Fields = f.InfluxFields()
-	} else {
-		m := data.(magnet.Magnet)
-		point.Measurement = m.InfluxMeasurement()
-		point.Tags = m.InfluxTags()
-		point.Fields = m.InfluxFields()
+		Measurement: data.InfluxMeasurement(),
+		Tags:        data.InfluxTags(),
+		Fields:      data.InfluxFields(),
+		Time:        time.Now().UTC(),
+		Precision:   "n",
 	}
 
 	if *Testing {
