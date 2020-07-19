@@ -1,5 +1,6 @@
 @media (prefers-color-scheme: light) {
      :root {
+        --btn-submit-bg: lightgreen;
         --main-bg-color: white;
         --main-color: black;
         --main-well-bg-color: rgba(211, 211, 211, 0.616);
@@ -9,6 +10,7 @@
 
 @media (prefers-color-scheme: dark) {
      :root {
+        --btn-submit-bg: darkgreen;
         --header-bg-color: rgba(105, 105, 105, 0.705);
         --main-bg-color: black;
         --main-color: white;
@@ -48,6 +50,10 @@ form {
     border-radius: 1em;
     margin: 0.5em;
     padding: 1em;
+}
+
+form button[type="submit"] {
+    background-color: var(--btn-submit-bg);
 }
 
 label {
