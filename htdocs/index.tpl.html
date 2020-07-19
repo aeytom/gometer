@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>set meter value</title>
+    <link rel="stylesheet" href="resource/style.css">
+    <script src="resource/page.js"></script>
+</head>
+
+<body>
+    <article>
+        <header>
+            <h1>Set meter value</h1>
+        </header>
+        <main>
+            <form method="POST" action="{{ .Action }}">
+                <div>
+                    <label>meter</label>
+                    <select name="meter">
+                        {{ range .Meters }}
+                        <option value="{{ .ID }}">{{ .Label }}</option>
+                        {{ end }}
+                    </select>
+                </div>
+                <div>
+                    <label>value</label>
+                    <input name="value" type="text" inputmode="numeric" value="{{ .Value }}" placeholder="{{ .Value }}">
+                    <p>old value: <span class="value">{{ .Value }}</span><span class="unit"></span></p>
+                    {{ if .Error }}
+                    <p class="error">{{ .Error }}</p>
+                    {{ end }}
+                </div>
+                <div>
+                    <button type="submit">Change value</button>
+                </div>
+            </form>
+        </main>
+        <aside>
+            <div class="meters">
+                {{ range .Meters}}
+                <div class="meter" id="mdisp_{{ .ID }}" data-meter="{{ .ID }}">
+                    <h3 class="name">{{ .ID }}</h3>
+                    <p><span class="value">{{ .Value }}</span>{{ .M.Unit }}</p>
+                </div>
+                {{ end }}
+            </div>
+        </aside>
+        <footer>
+
+        </footer>
+    </article>
+
+</body>
+
+</html>

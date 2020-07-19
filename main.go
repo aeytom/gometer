@@ -8,7 +8,10 @@ import (
 	"time"
 
 	"github.com/aeytom/gometer/ferraris"
+	"github.com/aeytom/gometer/http"
 	"github.com/aeytom/gometer/magnet"
+	"github.com/aeytom/gometer/meter"
+	"github.com/aeytom/gometer/parameters"
 	"github.com/coreos/go-systemd/daemon"
 	client "github.com/influxdata/influxdb1-client"
 )
@@ -17,20 +20,12 @@ const (
 	pollInterval        = 50 * time.Millisecond
 	influxWriteInterval = 30 * time.Second
 )
-
 const (
 	dfltInfluxURL         = "http://192.168.1.56:8086"
 	dfltInfluxUser        = "homemeter"
 	dfltInfluxPass        = "istgeheim"
 	dfltInfluxDb          = "homemeter"
 	dfltInfluxMeasurement = "meter"
-)
-
-var (
-	// Verbose provide more debugging output
-	Verbose *bool
-	// Testing do not write influxdb
-	Testing *bool
 )
 
 var (
@@ -46,9 +41,6 @@ var (
 )
 
 func main() {
-	Verbose = flag.Bool("verbose", false, "provide more debugging output")
-	Testing = flag.Bool("test", false, "do not write influxdb")
-
 	argInfluxURL := getEnvArg("INFLUX_URL", "influxUrl", dfltInfluxURL, "influx server url")
 	argInfluxUsr := getEnvArg("INFLUX_USER", "influxUser", dfltInfluxUser, "influx db user")
 	argInfluxPass := getEnvArg("INFLUX_PASSWORD", "influxPassword", dfltInfluxUser, "influx db user password")
@@ -59,13 +51,14 @@ func main() {
 	argCurrent := flag.Float64("current", 0, "current meter value")
 	argGas := flag.Float64("gas", 0, "gas meter value")
 
+	http.Flags()
 	flag.Parse()
 
-	if *Verbose {
+	if *parameters.Verbose {
 		log.Printf("InfluxURL %v, InfluxUsr %v, InfluxPass %v, influxDatabase %v, influxMeasurement %v\n",
 			*argInfluxURL, *argInfluxUsr, *argInfluxPass, *influxDatabase, *influxMeasurement)
 	}
-	magnet.Verbose = *Verbose
+	magnet.Verbose = *parameters.Verbose
 
 	influxURL, err := url.Parse(*argInfluxURL)
 	if err != nil {
@@ -83,19 +76,22 @@ func main() {
 		log.Fatal(err)
 	}
 
-	solarMeter = ferraris.New("Solar", 17, 375)
+	solarMeter = ferraris.NewFerraris("Solar", 17, 375, "solar meter value")
 	solarMeter.ResetMeter(float32(*argSolar))
 	solarMeter.Print()
+	http.Add(&solarMeter)
 	defer solarMeter.Close()
 
-	currentMeter = ferraris.New("Current", 27, 75)
+	currentMeter = ferraris.NewFerraris("Current", 27, 75, "current meter value")
 	currentMeter.ResetMeter(float32(*argCurrent))
 	currentMeter.Print()
+	http.Add(&currentMeter)
 	defer currentMeter.Close()
 
-	gasMeter = magnet.New("Gas")
+	gasMeter = magnet.NewMagnet("Gas", "gas meter value")
 	gasMeter.ResetMeter(float32(*argGas))
 	gasMeter.Print()
+	http.Add(&gasMeter)
 	defer gasMeter.Close()
 
 	daemon.SdNotify(false, daemon.SdNotifyReady)
@@ -105,6 +101,8 @@ func main() {
 	nextCurrent := time.Now().Add(influxWriteInterval)
 	nextSolar := time.Now().Add(influxWriteInterval)
 	nextGas := time.Now().Add(influxWriteInterval)
+
+	go http.RunServer()
 
 	for {
 		if currentMeter.EdgeDetected() {
@@ -154,7 +152,7 @@ func getEnvArg(env string, arg string, dflt string, usage string) *string {
 }
 
 //
-func writeInflux(data Meter) {
+func writeInflux(data meter.Meter) {
 	point := client.Point{
 		Measurement: data.InfluxMeasurement(),
 		Tags:        data.InfluxTags(),
@@ -163,10 +161,10 @@ func writeInflux(data Meter) {
 		Precision:   "n",
 	}
 
-	if *Testing {
+	if *parameters.Testing {
 		log.Println(point)
 	} else {
-		if *Verbose {
+		if *parameters.Verbose {
 			log.Printf("writeInflux %v %v %v\n", point.Tags["meter"], point.Time, point.Fields["value"])
 		}
 		pts := []client.Point{point}
@@ -177,7 +175,7 @@ func writeInflux(data Meter) {
 			Time:      time.Now().UTC(),
 			Precision: "n",
 		}
-		if *Verbose {
+		if *parameters.Verbose {
 			log.Println(bps)
 		}
 		go func(bps client.BatchPoints) {
@@ -185,7 +183,7 @@ func writeInflux(data Meter) {
 			if err != nil {
 				log.Print(err)
 			}
-			if *Verbose {
+			if *parameters.Verbose {
 				println(resp)
 			}
 		}(bps)

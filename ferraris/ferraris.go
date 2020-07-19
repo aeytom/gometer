@@ -6,9 +6,9 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"strings"
 	"time"
 
+	"github.com/aeytom/gometer/parameters"
 	"github.com/stianeikeland/go-rpio"
 )
 
@@ -19,6 +19,7 @@ type Ferraris struct {
 	RotationsPerKiloWattHour int
 	Meter                    float32
 	//
+	label     string
 	pin       rpio.Pin
 	baseMeter float32
 	count     int
@@ -37,14 +38,15 @@ func init() {
 	fmt.Println("init rpio")
 }
 
-// New …
-func New(name string, pin int, rpkwh int) Ferraris {
+// NewFerraris …
+func NewFerraris(name string, pin int, rpkwh int, label string) Ferraris {
 
 	f := Ferraris{
 		Name:                     name,
 		BcmPin:                   pin,
 		RotationsPerKiloWattHour: rpkwh,
 		pin:                      rpio.Pin(pin),
+		label:                    label,
 	}
 	restore(&f)
 	f.pin.Input()
@@ -72,19 +74,6 @@ func (f *Ferraris) ResetMeter(v float32) {
 	}
 }
 
-// Get return the current input state
-func (f *Ferraris) Get() rpio.State {
-	return f.pin.Read()
-}
-
-// Power returns the current power measurement in Watts
-func (f Ferraris) Power() float64 {
-	if f.stop == 0 {
-		return 0
-	}
-	return (1000 / float64(f.RotationsPerKiloWattHour)) / f.stop.Hours()
-}
-
 // EdgeDetected checks for a complete cycle
 func (f *Ferraris) EdgeDetected() bool {
 	now := time.Now()
@@ -101,31 +90,6 @@ func (f *Ferraris) EdgeDetected() bool {
 		}
 	}
 	return false
-}
-
-// Print screen output
-func (f Ferraris) Print() {
-	log.Printf("%10v %2v %4v %7.1f %10.3f\n", f.Name, f.BcmPin, f.count, f.Power(), f.Meter)
-}
-
-// InfluxMeasurement …
-func (f Ferraris) InfluxMeasurement() string {
-	return "meter"
-}
-
-// InfluxFields …
-func (f Ferraris) InfluxFields() map[string]interface{} {
-	return map[string]interface{}{
-		"value":   f.Meter,
-		"wattage": f.Power(),
-	}
-}
-
-// InfluxTags …
-func (f Ferraris) InfluxTags() map[string]string {
-	return map[string]string{
-		"meter": strings.ToLower(f.Name),
-	}
 }
 
 //
@@ -147,6 +111,13 @@ func restore(f *Ferraris) {
 //
 func save(f *Ferraris) {
 	fpath := f.Name + ".json"
+	if *parameters.Testing {
+		if *parameters.Verbose {
+			log.Printf("not save state - %s to %s := %v", f.Name, fpath, f.Meter)
+		}
+		return
+	}
+
 	file, err := os.OpenFile(fpath+".new", os.O_CREATE|os.O_WRONLY, 0640)
 	if err != nil {
 		log.Fatal(err)

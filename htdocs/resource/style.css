@@ -1,0 +1,113 @@
+@media (prefers-color-scheme: light) {
+     :root {
+        --main-bg-color: white;
+        --main-color: black;
+        --main-well-bg-color: rgba(211, 211, 211, 0.616);
+        --header-bg-color: rgba(211, 211, 211, 0.616);
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+     :root {
+        --header-bg-color: rgba(105, 105, 105, 0.705);
+        --main-bg-color: black;
+        --main-color: white;
+        --main-well-bg-color: rgba(169, 169, 169, 0.699);
+    }
+}
+
+@media (min-resolution: 200dpi) {
+    body {
+        font-size: 6mm;
+    }
+}
+
+body {
+    background-color: var(--main-bg-color);
+    background-image: url(/resource/bg.jpg);
+    background-repeat: no-repeat;
+    background-size: cover;
+    color: var(--main-color)
+}
+
+article {
+    max-width: 40rem;
+    margin: auto;
+}
+
+header {
+    background-color: var(--header-bg-color);
+    border-radius: 1em;
+    border: 1px solid var(--main-color);
+    margin: 0.5em;
+    padding: 1em;
+}
+
+form {
+    background-color: var(--main-well-bg-color);
+    border-radius: 1em;
+    margin: 0.5em;
+    padding: 1em;
+}
+
+label {
+    display: block;
+}
+
+select,
+input,
+button {
+    display: block;
+    font-size: 1em;
+}
+
+form .error {
+    padding: 1em;
+    color: red;
+    border: 2px solid red;
+}
+
+.meters {
+    align-items: baseline;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.meter {
+    background: var(--main-well-bg-color);
+    border-radius: 0.5em;
+    flex-basis: content;
+    flex-grow: 1;
+    flex-shrink: 1;
+    margin: 0.5em;
+    padding: 1em;
+}
+
+.meter .name {
+    margin: 0;
+}
+
+.meter .value {
+    padding-right: 0.3em;
+}
+
+@media (min-width: 15em) {
+    form {
+        display: grid;
+    }
+    form div {
+        display: grid;
+        grid-column: span 2;
+        grid-template-columns: subgrid;
+        margin: 1em 0;
+    }
+    label {
+        padding-right: 1em;
+    }
+    p,
+    button {
+        grid-column: 2 / -1;
+        margin: 0;
+    }
+}

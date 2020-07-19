@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
-	"strings"
+
+	"github.com/aeytom/gometer/parameters"
 
 	"github.com/aeytom/qmc5883l/qmc5883l"
 
@@ -31,6 +32,7 @@ type Magnet struct {
 	MinVal int16
 	MaxVal int16
 	//
+	label     string
 	baseMeter float32
 	count     int
 	start     time.Time
@@ -41,10 +43,11 @@ type Magnet struct {
 	dorCount  int
 }
 
-// New initializes a new Magnet struct
-func New(name string) Magnet {
+// NewMagnet initializes a new Magnet struct
+func NewMagnet(name string, label string) Magnet {
 	f := Magnet{
-		Name: name,
+		Name:  name,
+		label: label,
 	}
 	restore(&f)
 	f.sensor = qmc5883l.New(qmc5883l.DfltBus, qmc5883l.DfltAddress)
@@ -70,6 +73,10 @@ func (f *Magnet) ResetMeter(v float32) {
 
 // EdgeDetected dies und das
 func (f *Magnet) EdgeDetected() bool {
+	if *parameters.Testing {
+		return false
+	}
+
 	now := time.Now()
 	val, _, _, err := f.sensor.GetMagnetRaw()
 	if err != nil {
@@ -117,38 +124,6 @@ func (f *Magnet) EdgeDetected() bool {
 	return false
 }
 
-// Power returns the current power measurement in Watts
-func (f Magnet) Power() float64 {
-	if f.stop == 0 {
-		return 0
-	}
-	return 0.9655 * 11.229 * 1000 / f.stop.Hours()
-}
-
-// Print screen output
-func (f Magnet) Print() {
-	log.Printf("%10v %v %8.1f %10.3f\n", f.Name, f.count, f.Power(), f.Meter)
-}
-
-// InfluxMeasurement …
-func (f Magnet) InfluxMeasurement() string {
-	return "gas"
-}
-
-// InfluxFields …
-func (f Magnet) InfluxFields() map[string]interface{} {
-	return map[string]interface{}{
-		"value": f.Meter,
-	}
-}
-
-// InfluxTags …
-func (f Magnet) InfluxTags() map[string]string {
-	return map[string]string{
-		"meter": strings.ToLower(f.Name),
-	}
-}
-
 //
 func restore(f *Magnet) {
 	b, err := ioutil.ReadFile(f.Name + ".json")
@@ -168,6 +143,12 @@ func restore(f *Magnet) {
 //
 func save(f *Magnet) {
 	fpath := f.Name + ".json"
+	if *parameters.Testing {
+		if *parameters.Verbose {
+			log.Printf("not save state - %s to %s := %v", f.Name, fpath, f.Meter)
+		}
+		return
+	}
 	file, err := os.OpenFile(fpath+".new", os.O_CREATE|os.O_WRONLY, 0640)
 	if err != nil {
 		log.Fatal(err)
