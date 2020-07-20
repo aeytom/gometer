@@ -101,7 +101,7 @@ func (f *Magnet) EdgeDetected() bool {
 	}
 
 	xrange := f.MaxVal - f.MinVal
-	if xrange > 5000 {
+	if xrange > 2000 {
 		if f.expectLow {
 			if val < (f.MinVal + xrange/RangeTresholdFraction) {
 				f.expectLow = false
