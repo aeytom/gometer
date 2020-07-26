@@ -10,7 +10,7 @@ func (f Magnet) Power() float64 {
 	if f.stop == 0 {
 		return 0
 	}
-	return 0.9655 * 11.229 * 1000 / f.stop.Hours()
+	return incrementStep * 0.9655 * 11.229 * 1000 / f.stop.Hours()
 }
 
 // Print screen output

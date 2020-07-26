@@ -18,6 +18,8 @@ const (
 	RangeAdjustmentFraction = 20
 	// RangeTresholdFraction - treshold is range / RangeTresholdFraction
 	RangeTresholdFraction = 5
+	// consumtion step per count tick in m³
+	incrementStep = 0.005
 )
 
 // used settings
@@ -109,9 +111,9 @@ func (f *Magnet) EdgeDetected() bool {
 				f.stop = now.Sub(f.start)
 				f.start = now
 				f.count++
-				f.Meter = f.baseMeter + float32(f.count)*0.005
+				f.Meter = f.baseMeter + float32(f.count)*incrementStep
 				save(f)
-				return false
+				return true
 			}
 		} else {
 			if val > (f.MaxVal - xrange/RangeTresholdFraction) {
@@ -120,7 +122,7 @@ func (f *Magnet) EdgeDetected() bool {
 				f.stop = now.Sub(f.start)
 				f.start = now
 				f.count++
-				f.Meter = f.baseMeter + float32(f.count)*0.005
+				f.Meter = f.baseMeter + float32(f.count)*incrementStep
 				save(f)
 				return true
 			}
