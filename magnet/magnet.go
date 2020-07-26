@@ -106,6 +106,11 @@ func (f *Magnet) EdgeDetected() bool {
 			if val < (f.MinVal + xrange/RangeTresholdFraction) {
 				f.expectLow = false
 				f.MinVal += xrange / RangeAdjustmentFraction
+				f.stop = now.Sub(f.start)
+				f.start = now
+				f.count++
+				f.Meter = f.baseMeter + float32(f.count)*0.005
+				save(f)
 				return false
 			}
 		} else {
@@ -115,7 +120,7 @@ func (f *Magnet) EdgeDetected() bool {
 				f.stop = now.Sub(f.start)
 				f.start = now
 				f.count++
-				f.Meter = f.baseMeter + float32(f.count)*0.001
+				f.Meter = f.baseMeter + float32(f.count)*0.005
 				save(f)
 				return true
 			}
