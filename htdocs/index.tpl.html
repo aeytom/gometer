@@ -20,7 +20,7 @@
                     <label>meter</label>
                     <select name="meter">
                         {{ range .Meters }}
-                        <option value="{{ .ID }}">{{ .Label }}</option>
+                        <option value="{{ .ID }}" {{ if .Selected }}selected{{ end }}>{{ .Label }}</option>
                         {{ end }}
                     </select>
                 </div>

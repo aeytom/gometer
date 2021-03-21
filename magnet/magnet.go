@@ -91,23 +91,23 @@ func (f *Magnet) EdgeDetected() bool {
 	}
 	f.dorCount = 0
 
-	if f.MinVal > val {
-		f.MinVal = val
+	xrange := f.MaxVal - f.MinVal
+	if f.MaxVal < (val - xrange/RangeTresholdFraction) {
+		f.MaxVal = val - xrange/RangeTresholdFraction
 	}
-	if f.MaxVal < val {
-		f.MaxVal = val
+	if f.MinVal > (val + xrange/RangeTresholdFraction) {
+		f.MinVal = val + xrange/RangeTresholdFraction
 	}
 
 	if Verbose {
 		log.Printf("gas %6d < %6d < %6d --- %9.3f %v", f.MinVal, val, f.MaxVal, f.Meter, f.expectLow)
 	}
 
-	xrange := f.MaxVal - f.MinVal
-	if xrange > 2000 {
-		if f.expectLow {
-			if val < (f.MinVal + xrange/RangeTresholdFraction) {
-				f.expectLow = false
-				f.MinVal += xrange / RangeAdjustmentFraction
+	if f.expectLow {
+		if val < f.MinVal {
+			f.expectLow = false
+			f.MinVal += xrange / RangeAdjustmentFraction
+			if xrange > 1000 {
 				f.stop = now.Sub(f.start)
 				f.start = now
 				f.count++
@@ -115,10 +115,13 @@ func (f *Magnet) EdgeDetected() bool {
 				save(f)
 				return true
 			}
-		} else {
-			if val > (f.MaxVal - xrange/RangeTresholdFraction) {
-				f.expectLow = true
-				f.MaxVal -= xrange / RangeAdjustmentFraction
+		}
+	} else {
+		if val > f.MaxVal {
+			f.expectLow = true
+			f.MaxVal -= xrange / RangeAdjustmentFraction
+			if xrange > 1000 {
+
 				f.stop = now.Sub(f.start)
 				f.start = now
 				f.count++

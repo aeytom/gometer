@@ -147,7 +147,8 @@ func getEnvArg(env string, arg string, dflt string, usage string) *string {
 	if avail {
 		dflt = ev
 	}
-	v := flag.String(env, dflt, usage)
+	v := flag.String(arg, dflt, usage)
+	// log.Printf("%s/%s := %s\n", env, arg, *v)
 	return v
 }
 
