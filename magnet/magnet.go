@@ -79,7 +79,6 @@ func (f *Magnet) EdgeDetected() bool {
 		return false
 	}
 
-	now := time.Now()
 	val, _, _, err := f.sensor.GetMagnetRaw()
 	if err != nil {
 		log.Print(err)
@@ -104,31 +103,24 @@ func (f *Magnet) EdgeDetected() bool {
 	}
 
 	if f.expectLow {
-		if val < f.MinVal {
+		if val < -50.0 {
+			log.Printf("gas %6d < %6d < %6d --- %9.3f %v", f.MinVal, val, f.MaxVal, f.Meter, f.expectLow)
 			f.expectLow = false
 			f.MinVal += xrange / RangeAdjustmentFraction
-			if xrange > 1000 {
-				f.stop = now.Sub(f.start)
-				f.start = now
-				f.count++
-				f.Meter = f.baseMeter + float32(f.count)*incrementStep
-				save(f)
-				return true
-			}
+			f.count++
+			f.Meter = f.baseMeter + float32(f.count)*incrementStep
+			save(f)
+			return true
 		}
 	} else {
-		if val > f.MaxVal {
+		if val > 50.0 {
+			log.Printf("gas %6d < %6d < %6d --- %9.3f %v", f.MinVal, val, f.MaxVal, f.Meter, f.expectLow)
 			f.expectLow = true
 			f.MaxVal -= xrange / RangeAdjustmentFraction
-			if xrange > 1000 {
-
-				f.stop = now.Sub(f.start)
-				f.start = now
-				f.count++
-				f.Meter = f.baseMeter + float32(f.count)*incrementStep
-				save(f)
-				return true
-			}
+			f.count++
+			f.Meter = f.baseMeter + float32(f.count)*incrementStep
+			save(f)
+			return true
 		}
 	}
 	return false
