@@ -13,7 +13,10 @@ import (
 	"github.com/aeytom/gometer/meter"
 	"github.com/aeytom/gometer/parameters"
 	"github.com/coreos/go-systemd/daemon"
-	client "github.com/influxdata/influxdb1-client"
+
+	//"github.com/influxdata/influxdb-client-go/v2"
+	influxdb2 "github.com/influxdata/influxdb-client-go/v2"
+	"github.com/influxdata/influxdb-client-go/v2/api"
 )
 
 const (
@@ -21,10 +24,10 @@ const (
 	influxWriteInterval = 30 * time.Second
 )
 const (
-	dfltInfluxURL         = "http://192.168.1.56:8086"
-	dfltInfluxUser        = "homemeter"
-	dfltInfluxPass        = "istgeheim"
-	dfltInfluxDb          = "homemeter"
+	dfltInfluxURL         = "https://influx:8086"
+	dfltInfluxOrg         = "primary"
+	dfltInfluxToken       = ""
+	dfltInfluxBucket      = "homemeter"
 	dfltInfluxMeasurement = "meter"
 )
 
@@ -35,16 +38,15 @@ var (
 )
 
 var (
-	influxCon         *client.Client
-	influxDatabase    *string
+	influxWriteAPI    api.WriteAPI
 	influxMeasurement *string
 )
 
 func main() {
-	argInfluxURL := getEnvArg("INFLUX_URL", "influxUrl", dfltInfluxURL, "influx server url")
-	argInfluxUsr := getEnvArg("INFLUX_USER", "influxUser", dfltInfluxUser, "influx db user")
-	argInfluxPass := getEnvArg("INFLUX_PASSWORD", "influxPassword", dfltInfluxUser, "influx db user password")
-	influxDatabase = getEnvArg("INFLUX_DB", "influxDb", dfltInfluxDb, "influx db name")
+	argInfluxURL := getEnvArg("INFLUX_URL", "influxUrl", dfltInfluxURL, "influxdb api url")
+	argInfluxOrg := getEnvArg("INFLUX_ORG", "influxOrg", dfltInfluxOrg, "infludb organisation")
+	argInfluxToken := getEnvArg("INFLUX_TOKEN", "influxToken", dfltInfluxToken, "influxdb access token")
+	argInfluxBucket := getEnvArg("INFLUX_BUCKET", "influxBucket", dfltInfluxBucket, "influxdb bucket")
 	influxMeasurement = getEnvArg("INFLUX_MEASUREMENT", "influxMeasurement", dfltInfluxMeasurement, "influx db measurement")
 
 	argSolar := flag.Float64("solar", 0, "solar meter value")
@@ -55,26 +57,17 @@ func main() {
 	flag.Parse()
 
 	if *parameters.Verbose {
-		log.Printf("InfluxURL %v, InfluxUsr %v, InfluxPass %v, influxDatabase %v, influxMeasurement %v\n",
-			*argInfluxURL, *argInfluxUsr, *argInfluxPass, *influxDatabase, *influxMeasurement)
+		log.Printf("InfluxURL %v, InfluxUsr %v, InfluxPass %v, argInfluxBucket %v, influxMeasurement %v\n",
+			*argInfluxURL, *argInfluxOrg, *argInfluxToken, *argInfluxBucket, *influxMeasurement)
 	}
 	magnet.Verbose = *parameters.Verbose
 
-	influxURL, err := url.Parse(*argInfluxURL)
+	_, err := url.Parse(*argInfluxURL)
 	if err != nil {
 		log.Fatal(err)
 	}
-	conf := client.Config{
-		URL:       *influxURL,
-		Username:  *argInfluxUsr,
-		Password:  *argInfluxPass,
-		Timeout:   5 * time.Second,
-		UserAgent: "gometer/0.3.0",
-	}
-	influxCon, err = client.NewClient(conf)
-	if err != nil {
-		log.Fatal(err)
-	}
+	influxCon := influxdb2.NewClient(*argInfluxURL, *argInfluxToken)
+	influxWriteAPI = influxCon.WriteAPI(*argInfluxOrg, *argInfluxBucket)
 
 	solarMeter = ferraris.NewFerraris("Solar", 17, 375, "solar meter value")
 	solarMeter.ResetMeter(float32(*argSolar))
@@ -154,39 +147,15 @@ func getEnvArg(env string, arg string, dflt string, usage string) *string {
 
 //
 func writeInflux(data meter.Meter) {
-	point := client.Point{
-		Measurement: data.InfluxMeasurement(),
-		Tags:        data.InfluxTags(),
-		Fields:      data.InfluxFields(),
-		Time:        time.Now().UTC(),
-		Precision:   "n",
-	}
+	point := influxdb2.NewPoint(data.InfluxMeasurement(), data.InfluxTags(), data.InfluxFields(), time.Now().UTC())
 
 	if *parameters.Testing {
 		log.Println(point)
 	} else {
 		if *parameters.Verbose {
-			log.Printf("writeInflux %v %v %v\n", point.Tags["meter"], point.Time, point.Fields["value"])
+			log.Printf("writeInflux %v %v %v\n", point.TagList(), point.Time(), point.FieldList())
 		}
-		pts := []client.Point{point}
-
-		bps := client.BatchPoints{
-			Points:    pts,
-			Database:  *influxDatabase,
-			Time:      time.Now().UTC(),
-			Precision: "n",
-		}
-		if *parameters.Verbose {
-			log.Println(bps)
-		}
-		go func(bps client.BatchPoints) {
-			resp, err := influxCon.Write(bps)
-			if err != nil {
-				log.Print(err)
-			}
-			if *parameters.Verbose {
-				println(resp)
-			}
-		}(bps)
+		influxWriteAPI.WritePoint(point)
+		influxWriteAPI.Flush()
 	}
 }
